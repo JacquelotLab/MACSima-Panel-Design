@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Lab Portal - Antibody Panels</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    nav { background: #003366; padding: 10px; }
+    nav a { color: white; margin: 0 15px; text-decoration: none; }
+    nav a:hover { text-decoration: underline; }
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background: #f0f0f0; }
+    #cart { margin-top: 30px; padding: 15px; border: 2px solid #003366; border-radius: 8px; }
+    #cart ul { list-style: none; padding: 0; }
+    #cart li { margin: 5px 0; }
+    .filter-box { margin: 10px 0; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html">Home</a>
+  <a href="antibodies.html">Antibody Panels</a>
+  <a href="contact.html">Contact</a>
+</nav>
+
+<h1>Antibody Panel Builder</h1>
+<p>Select antibodies, customize panels, and estimate pricing.</p>
+
+<div class="filter-box">
+  Filter by antigen:
+  <select id="antigenFilter" onchange="filterTable()">
+    <option value="">All</option>
+    <option value="CD3">CD3</option>
+    <option value="CD8">CD8</option>
+    <option value="PD-1">PD-1</option>
+  </select>
+
+  Filter by color:
+  <select id="colorFilter" onchange="filterTable()">
+    <option value="">All</option>
+    <option value="FITC">FITC</option>
+    <option value="APC">APC</option>
+    <option value="PE">PE</option>
+  </select>
+</div>
+
+<table id="antibodyTable">
+  <tr><th>Select</th><th>Antigen</th><th>Color</th><th>Format</th><th>Price (CAD)</th></tr>
+  <tr><td><input type="checkbox" data-price="100" data-name="CD3-FITC"></td><td>CD3</td><td>FITC</td><td>Flow</td><td>100</td></tr>
+  <tr><td><input type="checkbox" data-price="120" data-name="CD8-APC"></td><td>CD8</td><td>APC</td><td>Flow</td><td>120</td></tr>
+  <tr><td><input type="checkbox" data-price="150" data-name="PD-1-PE"></td><td>PD-1</td><td>PE</td><td>Flow</td><td>150</td></tr>
+</table>
+
+<div id="cart">
+  <h3>Your Custom Panel</h3>
+  <ul id="cartItems"></ul>
+  <p>Total: $<span id="total">0</span> CAD</p>
+</div>
+
+<script>
+function filterTable() {
+  let antigenFilter = document.getElementById("antigenFilter").value;
+  let colorFilter = document.getElementById("colorFilter").value;
+  let rows = document.querySelectorAll("#antibodyTable tr");
+  rows.forEach((row, index) => {
+    if (index === 0) return;
+    let antigen = row.cells[1].innerText;
+    let color = row.cells[2].innerText;
+    row.style.display =
+      ((antigenFilter === "" || antigen === antigenFilter) &&
+       (colorFilter === "" || color === colorFilter)) ? "" : "none";
+  });
+}
+
+let checkboxes = document.querySelectorAll("input[type=checkbox]");
+checkboxes.forEach(cb => cb.addEventListener("change", updateCart));
+
+function updateCart() {
+  let cart = document.getElementById("cartItems");
+  let total = 0;
+  cart.innerHTML = "";
+  checkboxes.forEach(cb => {
+    if (cb.checked) {
+      let price = parseFloat(cb.getAttribute("data-price"));
+      let name = cb.getAttribute("data-name");
+      total += price;
+      let li = document.createElement("li");
+      li.innerText = name + " - $" + price;
+      cart.appendChild(li);
+    }
+  });
+  document.getElementById("total").innerText = total;
+}
+</script>
+
+</body>
+</html>
