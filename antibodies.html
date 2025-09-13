@@ -5,6 +5,8 @@
   <title>Lab Portal - Antibody Panels</title>
   <!-- DataTables CSS -->
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+  <!-- Select2 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
     nav { background: #003366; padding: 10px; }
@@ -12,6 +14,11 @@
     nav a:hover { text-decoration: underline; }
     h1 { color: #003366; }
     table { width: 100%; }
+    #filters { margin: 20px 0; padding: 10px; border: 1px solid #ccc; border-radius: 6px; }
+    #filters label { margin: 0 10px 0 0; font-weight: bold; }
+    .filter-select { width: 180px; margin: 5px 10px 5px 0; }
+    #resetBtn { margin: 10px 0; padding: 6px 12px; background: #666; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    #resetBtn:hover { background: #444; }
     #cart { margin-top: 30px; padding: 15px; border: 2px solid #003366; border-radius: 8px; }
     #cart ul { list-style: none; padding: 0; }
     #cart li { margin: 5px 0; }
@@ -34,35 +41,15 @@
   Once done, you can download your selection as a CSV file.
 </p>
 
-<div class="filters">
-  <label>Filter by Color:
-    <select id="colorFilter">
-      <option value="">All</option>
-    </select>
-  </label>
-
-  <label>Filter by Company:
-    <select id="companyFilter">
-      <option value="">All</option>
-    </select>
-  </label>
+<!-- Filters will be generated dynamically -->
+<div id="filters">
+  <h3>Filters</h3>
+  <button id="resetBtn">Reset All Filters</button>
 </div>
-  
+
 <table id="antibodyTable" class="display">
   <thead>
-    <tr>
-      <th>Select</th>
-      <th>Markers</th>
-      <th>Antibodies</th>
-      <th>Clone</th>
-      <th>Color</th>
-      <th>Cat#</th>
-      <th>Dilution</th>
-      <th>Amount/Tests</th>
-      <th>Price (CAD)</th>
-      <th>Validated Fixation</th>
-      <th>Company</th>
-    </tr>
+    <tr id="tableHeader"></tr>
   </thead>
   <tbody></tbody>
 </table>
@@ -74,56 +61,92 @@
   <button onclick="downloadCSV()">Download Panel (CSV)</button>
 </div>
 
-<!-- jQuery, DataTables, PapaParse -->
+<!-- JS libraries -->
 <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 <script>
 let table;
 let selectedRows = [];
+let headers = [];
 
 document.addEventListener("DOMContentLoaded", function () {
-  table = $('#antibodyTable').DataTable();
-
-  // 读取 CSV
   Papa.parse("antibodies.csv", {
     download: true,
     header: true,
     complete: function(results) {
       let data = results.data;
+      headers = results.meta.fields; // automatically get CSV headers
+
+      // === Build table header ===
+      let headerRow = document.getElementById("tableHeader");
+      headerRow.innerHTML = "<th>Select</th>" + headers.map(h => `<th>${h}</th>`).join("");
+
+      // Initialize DataTable
+      table = $('#antibodyTable').DataTable();
+
+      // Collect unique values for each column
+      let uniqueValues = {};
+      headers.forEach(h => uniqueValues[h] = new Set());
+
+      // === Fill the table with CSV data ===
       data.forEach(row => {
-        if (row.Markers) { // 避免空行
-          table.row.add([
-            `<input type="checkbox" class="antibody-check"
-              data-markers="${row.Markers}"
-              data-antibodies="${row.Antibodies}"
-              data-clone="${row.Clone}"
-              data-color="${row.Color}"
-              data-cat="${row["Cat#"]}"
-              data-dilution="${row.Dilution}"
-              data-amount="${row["Amount/Tests"]}"
-              data-price="${row["Price (CAD)"]}"
-              data-fixation="${row["Validated Fixation"]}"
-              data-company="${row.Company}">`,
-            row.Markers,
-            row.Antibodies,
-            row.Clone,
-            row.Color,
-            row["Cat#"],
-            row.Dilution,
-            row["Amount/Tests"],
-            row["Price (CAD)"],
-            row["Validated Fixation"],
-            row.Company
-          ]).draw(false);
+        if (row[headers[0]]) { // skip empty rows
+          let checkbox = `<input type="checkbox" class="antibody-check" ${headers.map(h => `data-${h.replace(/[^a-z0-9]/gi,'_').toLowerCase()}="${row[h]}"`).join(" ")}>`;
+          let rowData = [checkbox].concat(headers.map(h => row[h] || ""));
+          table.row.add(rowData).draw(false);
+
+          headers.forEach(h => {
+            if (row[h]) uniqueValues[h].add(row[h].trim());
+          });
         }
       });
+
+      // === Generate filters dynamically ===
+      headers.forEach((h, i) => {
+        let selectId = `filter-${i}`;
+        $("#filters").append(`<label>${h}: <select id="${selectId}" class="filter-select" multiple="multiple"></select></label>`);
+
+        uniqueValues[h].forEach(v => {
+          $(`#${selectId}`).append(`<option value="${v}">${v}</option>`);
+        });
+
+        // Activate Select2
+        $(`#${selectId}`).select2({
+          placeholder: `Select ${h}`,
+          allowClear: true
+        });
+
+        // Apply filter when selection changes
+        $(`#${selectId}`).on("change", function() {
+          let vals = $(this).val(); // array of selected values
+          if (!vals || vals.length === 0) {
+            table.column(i+1).search("").draw(); // show all
+          } else {
+            let regex = vals.join("|");
+            table.column(i+1).search(regex, true, false).draw();
+          }
+        });
+      });
+
+      // === Reset all filters ===
+      $("#resetBtn").on("click", function() {
+        headers.forEach((h, i) => {
+          let selectId = `#filter-${i}`;
+          $(selectId).val(null).trigger("change"); // clear Select2
+          table.column(i+1).search("").draw(); // clear DataTable search
+        });
+      });
+
+      // Listen for checkbox changes
       $('#antibodyTable').on('change', '.antibody-check', updateCart);
     }
   });
 });
 
+// === Update shopping cart ===
 function updateCart() {
   let cart = document.getElementById("cartItems");
   let total = 0;
@@ -131,39 +154,33 @@ function updateCart() {
   cart.innerHTML = "";
 
   document.querySelectorAll('.antibody-check:checked').forEach(cb => {
-    let row = {
-      Markers: cb.getAttribute("data-markers"),
-      Antibodies: cb.getAttribute("data-antibodies"),
-      Clone: cb.getAttribute("data-clone"),
-      Color: cb.getAttribute("data-color"),
-      Cat: cb.getAttribute("data-cat"),
-      Dilution: cb.getAttribute("data-dilution"),
-      Amount: cb.getAttribute("data-amount"),
-      Price: parseFloat(cb.getAttribute("data-price")),
-      Fixation: cb.getAttribute("data-fixation"),
-      Company: cb.getAttribute("data-company")
-    };
-    total += row.Price;
-    selectedRows.push(row);
+    let rowData = {};
+    headers.forEach(h => {
+      let key = h.replace(/[^a-z0-9]/gi,'_').toLowerCase();
+      rowData[h] = cb.getAttribute(`data-${key}`);
+    });
+    let price = parseFloat(rowData["Price (CAD)"]) || 0;
+    total += price;
+    selectedRows.push(rowData);
 
     let li = document.createElement("li");
-    li.innerText = `${row.Markers} | ${row.Color} | $${row.Price}`;
+    li.innerText = `${rowData.Markers || ""} | ${rowData.Color || ""} | $${price}`;
     cart.appendChild(li);
   });
 
   document.getElementById("total").innerText = total;
 }
 
+// === Download selected items as CSV ===
 function downloadCSV() {
   if (selectedRows.length === 0) {
     alert("Please select at least one antibody.");
     return;
   }
 
-  let csvContent = "data:text/csv;charset=utf-8,";
-  csvContent += "Markers,Antibodies,Clone,Color,Cat#,Dilution,Amount/Tests,Price (CAD),Validated Fixation,Company\n";
+  let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n";
   selectedRows.forEach(item => {
-    csvContent += `${item.Markers},${item.Antibodies},${item.Clone},${item.Color},${item.Cat},${item.Dilution},${item.Amount},${item.Price},${item.Fixation},${item.Company}\n`;
+    csvContent += headers.map(h => item[h] || "").join(",") + "\n";
   });
   csvContent += `Total,,,,,,,,${document.getElementById("total").innerText}\n`;
 
