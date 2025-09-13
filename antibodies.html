@@ -3,18 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <title>Lab Portal - Antibody Panels</title>
+  <!-- DataTables CSS -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
     nav { background: #003366; padding: 10px; }
     nav a { color: white; margin: 0 15px; text-decoration: none; }
     nav a:hover { text-decoration: underline; }
-    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-    th { background: #f0f0f0; }
+    h1 { color: #003366; }
+    table { width: 100%; }
     #cart { margin-top: 30px; padding: 15px; border: 2px solid #003366; border-radius: 8px; }
     #cart ul { list-style: none; padding: 0; }
     #cart li { margin: 5px 0; }
-    .filter-box { margin: 10px 0; }
+    button { padding: 8px 14px; margin-top: 10px; background: #003366; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    button:hover { background: #0055aa; }
   </style>
 </head>
 <body>
@@ -26,72 +28,115 @@
 </nav>
 
 <h1>Antibody Panel Builder</h1>
-<p>Select antibodies, customize panels, and estimate pricing.</p>
+<p>
+  Browse and filter available antibodies below.  
+  Select antibodies to add them to your panel. The total cost will update automatically.  
+  Once done, you can <b>download your panel as a CSV file</b>.
+</p>
 
-<div class="filter-box">
-  Filter by antigen:
-  <select id="antigenFilter" onchange="filterTable()">
-    <option value="">All</option>
-    <option value="CD3">CD3</option>
-    <option value="CD8">CD8</option>
-    <option value="PD-1">PD-1</option>
-  </select>
-
-  Filter by color:
-  <select id="colorFilter" onchange="filterTable()">
-    <option value="">All</option>
-    <option value="FITC">FITC</option>
-    <option value="APC">APC</option>
-    <option value="PE">PE</option>
-  </select>
-</div>
-
-<table id="antibodyTable">
-  <tr><th>Select</th><th>Antigen</th><th>Color</th><th>Format</th><th>Price (CAD)</th></tr>
-  <tr><td><input type="checkbox" data-price="100" data-name="CD3-FITC"></td><td>CD3</td><td>FITC</td><td>Flow</td><td>100</td></tr>
-  <tr><td><input type="checkbox" data-price="120" data-name="CD8-APC"></td><td>CD8</td><td>APC</td><td>Flow</td><td>120</td></tr>
-  <tr><td><input type="checkbox" data-price="150" data-name="PD-1-PE"></td><td>PD-1</td><td>PE</td><td>Flow</td><td>150</td></tr>
+<table id="antibodyTable" class="display">
+  <thead>
+    <tr>
+      <th>Select</th>
+      <th>Antigen</th>
+      <th>Color</th>
+      <th>Format</th>
+      <th>Price (CAD)</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
 </table>
 
 <div id="cart">
   <h3>Your Custom Panel</h3>
   <ul id="cartItems"></ul>
   <p>Total: $<span id="total">0</span> CAD</p>
+  <button onclick="downloadCSV()">Download Panel (CSV)</button>
 </div>
 
-<script>
-function filterTable() {
-  let antigenFilter = document.getElementById("antigenFilter").value;
-  let colorFilter = document.getElementById("colorFilter").value;
-  let rows = document.querySelectorAll("#antibodyTable tr");
-  rows.forEach((row, index) => {
-    if (index === 0) return;
-    let antigen = row.cells[1].innerText;
-    let color = row.cells[2].innerText;
-    row.style.display =
-      ((antigenFilter === "" || antigen === antigenFilter) &&
-       (colorFilter === "" || color === colorFilter)) ? "" : "none";
-  });
-}
+<!-- jQuery, DataTables, PapaParse -->
+<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
-let checkboxes = document.querySelectorAll("input[type=checkbox]");
-checkboxes.forEach(cb => cb.addEventListener("change", updateCart));
+<script>
+let table;
+let selectedRows = [];
+
+document.addEventListener("DOMContentLoaded", function () {
+  table = $('#antibodyTable').DataTable();
+
+  // 读取 CSV
+  Papa.parse("antibodies.csv", {
+    download: true,
+    header: true,
+    complete: function(results) {
+      let data = results.data;
+      data.forEach(row => {
+        if (row.Antigen) { // 避免空行
+          table.row.add([
+            `<input type="checkbox" class="antibody-check"
+              data-antigen="${row.Antigen}"
+              data-color="${row.Color}"
+              data-format="${row.Format}"
+              data-price="${row.Price}">`,
+            row.Antigen,
+            row.Color,
+            row.Format,
+            row.Price
+          ]).draw(false);
+        }
+      });
+      $('#antibodyTable').on('change', '.antibody-check', updateCart);
+    }
+  });
+});
 
 function updateCart() {
   let cart = document.getElementById("cartItems");
   let total = 0;
+  selectedRows = [];
   cart.innerHTML = "";
-  checkboxes.forEach(cb => {
-    if (cb.checked) {
-      let price = parseFloat(cb.getAttribute("data-price"));
-      let name = cb.getAttribute("data-name");
-      total += price;
-      let li = document.createElement("li");
-      li.innerText = name + " - $" + price;
-      cart.appendChild(li);
-    }
+
+  document.querySelectorAll('.antibody-check:checked').forEach(cb => {
+    let antigen = cb.getAttribute("data-antigen");
+    let color = cb.getAttribute("data-color");
+    let format = cb.getAttribute("data-format");
+    let price = parseFloat(cb.getAttribute("data-price"));
+
+    total += price;
+    selectedRows.push({Antigen: antigen, Color: color, Format: format, Price: price});
+
+    let li = document.createElement("li");
+    li.innerText = `${antigen} | ${color} | ${format} | $${price}`;
+    cart.appendChild(li);
   });
+
   document.getElementById("total").innerText = total;
+}
+
+function downloadCSV() {
+  if (selectedRows.length === 0) {
+    alert("Please select at least one antibody.");
+    return;
+  }
+
+  // 生成 CSV 内容
+  let csvContent = "data:text/csv;charset=utf-8,";
+  csvContent += "Antigen,Color,Format,Price(CAD)\n";
+  selectedRows.forEach(item => {
+    csvContent += `${item.Antigen},${item.Color},${item.Format},${item.Price}\n`;
+  });
+  csvContent += `Total,,,${document.getElementById("total").innerText}\n`;
+
+  // 下载文件
+  let encodedUri = encodeURI(csvContent);
+  let link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", "My_Antibody_Panel.csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 </script>
 
