@@ -31,17 +31,23 @@
 <p>
   Browse and filter available antibodies below.  
   Select antibodies to add them to your panel. The total cost will update automatically.  
-  Once done, you can <b>download your panel as a CSV file</b>.
+  Once done, you can download your selection as a CSV file.
 </p>
 
 <table id="antibodyTable" class="display">
   <thead>
     <tr>
       <th>Select</th>
-      <th>Antigen</th>
+      <th>Markers</th>
+      <th>Antibodies</th>
+      <th>Clone</th>
       <th>Color</th>
-      <th>Format</th>
+      <th>Cat#</th>
+      <th>Dilution</th>
+      <th>Amount/Tests</th>
       <th>Price (CAD)</th>
+      <th>Validated Fixation</th>
+      <th>Company</th>
     </tr>
   </thead>
   <tbody></tbody>
@@ -73,17 +79,29 @@ document.addEventListener("DOMContentLoaded", function () {
     complete: function(results) {
       let data = results.data;
       data.forEach(row => {
-        if (row.Antigen) { // 避免空行
+        if (row.Markers) { // 避免空行
           table.row.add([
             `<input type="checkbox" class="antibody-check"
-              data-antigen="${row.Antigen}"
+              data-markers="${row.Markers}"
+              data-antibodies="${row.Antibodies}"
+              data-clone="${row.Clone}"
               data-color="${row.Color}"
-              data-format="${row.Format}"
-              data-price="${row.Price}">`,
-            row.Antigen,
+              data-cat="${row["Cat#"]}"
+              data-dilution="${row.Dilution}"
+              data-amount="${row["Amount/Tests"]}"
+              data-price="${row["Price (CAD)"]}"
+              data-fixation="${row["Validated Fixation"]}"
+              data-company="${row.Company}">`,
+            row.Markers,
+            row.Antibodies,
+            row.Clone,
             row.Color,
-            row.Format,
-            row.Price
+            row["Cat#"],
+            row.Dilution,
+            row["Amount/Tests"],
+            row["Price (CAD)"],
+            row["Validated Fixation"],
+            row.Company
           ]).draw(false);
         }
       });
@@ -99,16 +117,23 @@ function updateCart() {
   cart.innerHTML = "";
 
   document.querySelectorAll('.antibody-check:checked').forEach(cb => {
-    let antigen = cb.getAttribute("data-antigen");
-    let color = cb.getAttribute("data-color");
-    let format = cb.getAttribute("data-format");
-    let price = parseFloat(cb.getAttribute("data-price"));
-
-    total += price;
-    selectedRows.push({Antigen: antigen, Color: color, Format: format, Price: price});
+    let row = {
+      Markers: cb.getAttribute("data-markers"),
+      Antibodies: cb.getAttribute("data-antibodies"),
+      Clone: cb.getAttribute("data-clone"),
+      Color: cb.getAttribute("data-color"),
+      Cat: cb.getAttribute("data-cat"),
+      Dilution: cb.getAttribute("data-dilution"),
+      Amount: cb.getAttribute("data-amount"),
+      Price: parseFloat(cb.getAttribute("data-price")),
+      Fixation: cb.getAttribute("data-fixation"),
+      Company: cb.getAttribute("data-company")
+    };
+    total += row.Price;
+    selectedRows.push(row);
 
     let li = document.createElement("li");
-    li.innerText = `${antigen} | ${color} | ${format} | $${price}`;
+    li.innerText = `${row.Markers} | ${row.Color} | $${row.Price}`;
     cart.appendChild(li);
   });
 
@@ -121,15 +146,13 @@ function downloadCSV() {
     return;
   }
 
-  // 生成 CSV 内容
   let csvContent = "data:text/csv;charset=utf-8,";
-  csvContent += "Antigen,Color,Format,Price(CAD)\n";
+  csvContent += "Markers,Antibodies,Clone,Color,Cat#,Dilution,Amount/Tests,Price (CAD),Validated Fixation,Company\n";
   selectedRows.forEach(item => {
-    csvContent += `${item.Antigen},${item.Color},${item.Format},${item.Price}\n`;
+    csvContent += `${item.Markers},${item.Antibodies},${item.Clone},${item.Color},${item.Cat},${item.Dilution},${item.Amount},${item.Price},${item.Fixation},${item.Company}\n`;
   });
-  csvContent += `Total,,,${document.getElementById("total").innerText}\n`;
+  csvContent += `Total,,,,,,,,${document.getElementById("total").innerText}\n`;
 
-  // 下载文件
   let encodedUri = encodeURI(csvContent);
   let link = document.createElement("a");
   link.setAttribute("href", encodedUri);
