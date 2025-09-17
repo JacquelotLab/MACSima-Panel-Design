@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Lab Portal - 48-plex Panel</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    nav { background: #003366; padding: 10px; }
+    nav a { color: white; margin: 0 15px; text-decoration: none; }
+    nav a:hover { text-decoration: underline; }
+    h1 { color: #003366; }
+    table { border-collapse: collapse; margin-top: 20px; }
+    table td, table th { border: 1px solid #ccc; padding: 8px; text-align: center; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html">Home</a>
+  <a href="validated.html">Validated Panel</a>
+  <a href="antibodies.html">Antibody Panels</a>
+  <a href="contact.html">Contact</a>
+</nav>
+
+<h1>Validated Panel</h1>
+<p>This table shows our lab-validated antibody panel.</p>
+
+<!-- Paste the exported Excel table here -->
+<table>
+  <tr style="background-color:#003366; color:white;">
+    <th>Marker</th>
+    <th>Antibody</th>
+    <th>Clone</th>
+    <th>Color</th>
+    <th>Dilution</th>
+    <th>Company</th>
+  </tr>
+  <tr style="background-color:#f0f8ff;">
+    <td>CD3</td>
+    <td>Anti-CD3</td>
+    <td>UCHT1</td>
+    <td>FITC</td>
+    <td>1:100</td>
+    <td>BD</td>
+  </tr>
+  <tr style="background-color:#fff0f5;">
+    <td>CD8</td>
+    <td>Anti-CD8</td>
+    <td>RPA-T8</td>
+    <td>APC</td>
+    <td>1:50</td>
+    <td>BioLegend</td>
+  </tr>
+  <!-- add more rows as needed -->
+</table>
+
+</body>
+</html>
